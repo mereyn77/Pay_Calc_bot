@@ -1,0 +1,2361 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель управления | {period}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: rgba(30, 41, 59, 0.6);
+            --blue-primary: #1e40af;
+            --blue-light: #3b82f6;
+            --green: #10b981;
+            --red: #ef4444;
+            --yellow: #f59e0b;
+            --cyan: #06b6d4;
+            --text-white: #ffffff;
+            --text-gray: #cbd5e1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #1e293b 100%);
+            color: var(--text-white);
+            min-height: 100vh;
+            padding-bottom: 2rem;
+        }
+
+        /* Система авторизации */
+        .auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .auth-modal {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 3rem;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .auth-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            background: linear-gradient(135deg, var(--blue-light), var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .password-input {
+            margin: 2rem 0;
+        }
+
+        .password-input input {
+            width: 100%;
+            padding: 1.2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            color: var(--text-white);
+            font-size: 1.1rem;
+            transition: all 0.3s;
+        }
+
+        .password-input input:focus {
+            outline: none;
+            border-color: var(--blue-light);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .auth-btn {
+            width: 100%;
+            padding: 1.2rem;
+            background: linear-gradient(135deg, var(--blue-primary), var(--blue-light));
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .auth-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+        }
+
+        .auth-error {
+            color: var(--red);
+            text-align: center;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .auth-hint {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--text-gray);
+        }
+
+        .auth-hint code {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Основной интерфейс дашборда */
+        header {
+            background: linear-gradient(135deg, var(--blue-primary) 0%, var(--blue-light) 100%);
+            padding: 0.8rem 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-content {
+            max-width: 1800px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .header-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .header-subtitle {
+            font-size: 1rem;
+            font-weight: 400;
+            opacity: 0.8;
+            margin-top: 0.3rem;
+        }
+
+        .branch-selector {
+            display: flex;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.3rem;
+            border-radius: 8px;
+        }
+
+        .branch-btn {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            background: transparent;
+            color: var(--text-white);
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .branch-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .branch-btn.active {
+            background: var(--text-white);
+            color: var(--blue-primary);
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--text-white);
+        }
+
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 40px;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(30, 64, 175, 0.2) 100%);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            transition: transform 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .kpi-text {
+            flex: 1;
+        }
+        
+        .kpi-icon {
+            font-size: 1.8rem;
+            margin-bottom: 0;
+        }
+        
+        .kpi-label {
+            font-size: 0.95rem;
+            color: var(--text-gray);
+            margin-bottom: 0.2rem;
+        }
+        
+        .kpi-value {
+            font-size: 1.05rem;
+            font-weight: 500;
+            color: var(--text-white);
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .table-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .control-label {
+            font-size: 0.85rem;
+            color: var(--text-gray);
+        }
+
+        select, input[type="text"] {
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(30, 41, 59, 0.8);
+            color: var(--text-white);
+            font-size: 0.95rem;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.87rem;
+            padding-bottom: 40px;
+        }
+
+        .data-table th {
+            background: rgba(30, 64, 175, 1);
+            padding: 0.6rem 0.3rem;
+            text-align: left;
+            font-weight: 400;
+            font-size: 0.97rem;
+            cursor: pointer;
+            position: sticky;
+            top: 0px;
+            z-index: 20;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        .data-table th:hover {
+            background: rgba(59, 130, 246, 0.6);
+        }
+
+        .data-table td {
+            padding: 0.5rem 0.3rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            white-space: nowrap;
+        }
+
+        .data-table tbody tr {
+            transition: background 0.2s;
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        .data-table tbody tr.warning {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .col-dept {
+            max-width: 130px;
+            min-width: 100px;
+        }
+
+        /* Ограничение ширины для столбца ФИО (первая колонка) */
+        .data-table td:first-child {
+            max-width: 160px;
+            min-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .col-vacation, .col-weekend, .col-sick {
+            width: 40px;
+            min-width: 40px;
+            max-width: 40px;
+        }
+
+        /* Ширина для колонки Часов */
+        .data-table td:nth-child(6) {
+            min-width: 55px;
+            max-width: 60px;
+        }
+
+        /* Ширина для колонки Доля */
+        .data-table td:nth-child(7) {
+            min-width: 57px;
+            max-width: 65px;
+        }
+
+        /* Ширина для колонки Долев. прем. */
+        .data-table td:nth-child(8) {
+            min-width: 60px;
+            max-width: 70px;
+        }
+
+        /* Премия опт - 11-я колонка */
+        .data-table td:nth-child(12) {
+            min-width: 60px;
+            max-width: 65px;
+        }
+
+        /* Схема - 12-я колонка */
+        .data-table td:nth-child(13) {
+            min-width: 60px;
+            max-width: 70px;
+        }
+
+        /* Гарантии - 13-я колонка */
+        .data-table td:nth-child(14) {
+            min-width: 60px;
+            max-width: 70px;
+        }
+
+        /* Разница - 14-я колонка */
+        .data-table td:nth-child(15) {
+            min-width: 60px;
+            max-width: 70px;
+        }
+        
+        .col-premium {
+            max-width: 90px;
+            min-width: 80px;
+        }
+        
+        .col-category {
+            max-width: 70px;
+            min-width: 60px;
+        }
+
+        /* Эффект выделения строки */
+        .data-table tbody tr.selected {
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.4), rgba(30, 64, 175, 0.4)) !important;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+            border-left: 4px solid var(--blue-light);
+            transform: scale(1.005);
+            transition: all 0.3s ease;
+        }
+
+        .data-table tbody tr.faded {
+            opacity: 0.15;
+            filter: blur(0.4px);
+            transition: all 0.3s ease;
+        }
+
+        .data-table tbody tr.faded td:first-child,
+        .data-table tbody tr.faded td:last-child {
+            opacity: 0.15;
+            filter: blur(0.5px);
+        }
+
+        .data-table tbody tr.selected td {
+            font-weight: 330;
+            color: var(--text-white) !important;
+            font-size: 1rem;
+        }
+
+        .data-table tbody tr.selected .text-red,
+        .data-table tbody tr.selected .text-green {
+            color: var(--text-white) !important;
+            font-weight: 400;
+        }
+
+        .pair-group-1 {
+            background: rgba(16, 185, 129, 0.2);
+        }
+        
+        .pair-group-2 {
+            background: rgba(59, 130, 246, 0.2);
+        }
+        
+        .pair-group-3 {
+            background: rgba(245, 158, 11, 0.2);
+        }
+        
+        .pair-group-4 {
+            background: rgba(147, 51, 234, 0.2);
+        }
+        
+        .pair-group-5 {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .pair-group-6 {
+            background: rgba(168, 85, 247, 0.2);
+        }
+
+        .prem-retail {
+            background: rgba(16, 185, 129, 0.15);
+            border-left: 1px solid var(--green);
+        }
+
+        .prem-opt {
+            background: rgba(245, 158, 11, 0.15);
+            border-left: 1px solid var(--yellow);
+        }
+
+        .total-column {
+            font-size: 1.02em !important;
+            font-weight: 300 !important;
+            color: var(--text-white) !important;
+            letter-spacing: 0.5px !important;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 450px;
+            margin-top: 0.7rem;
+            padding-bottom: 20px;
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--text-white);
+        }
+
+        .top-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .rank-card {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1.2rem;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .rank-card.anti {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.2) 100%);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .rank-number {
+            display: inline-block;
+            width: 2rem;
+            height: 2rem;
+            line-height: 2rem;
+            text-align: center;
+            border-radius: 50%;
+            background: var(--green);
+            color: white;
+            font-weight: 700;
+            margin-right: 0.5rem;
+        }
+
+        .rank-card.anti .rank-number {
+            background: var(--red);
+        }
+
+        .rank-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .rank-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.3rem;
+            font-size: 0.85rem;
+            color: var(--text-gray);
+        }
+
+        .leaders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .leader-block {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 10px;
+            padding: 1rem;
+            border-left: 4px solid var(--cyan);
+        }
+
+        .leader-block h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.8rem;
+            color: var(--cyan);
+        }
+
+        .leader-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .problems-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .problem-block {
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 10px;
+            padding: 1.2rem;
+            border-left: 4px solid var(--red);
+        }
+
+        .problem-block h3 {
+            color: var(--red);
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--green) 0%, var(--cyan) 100%);
+            transition: width 0.3s;
+        }
+
+        .progress-fill.low {
+            background: linear-gradient(90deg, var(--red) 0%, var(--yellow) 100%);
+        }
+
+        .zakaz-group {
+            background: rgba(236, 72, 153, 0.2);
+            border-left: 2px solid rgba(236, 72, 153, 0.5);
+        }
+
+        .chart-type-btn {
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .chart-type-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .chart-type-btn.active {
+            background: var(--blue-light);
+            border-color: var(--blue-light);
+            font-weight: bold;
+        }
+
+        .separator {
+            width: 10px !important;
+            min-width: 10px !important;
+            max-width: 10px !important;
+            background-color: var(--bg-dark) !important;
+            border: none !important;
+            padding: 0 !important;
+        }
+
+        .assortment-group {
+            background: rgba(168, 85, 247, 0.2);
+            border-left: 2px solid rgba(168, 85, 247, 0.5);
+        }
+
+        .text-green { color: var(--green); }
+        .text-red { color: var(--red); }
+        .text-yellow { color: var(--yellow); }
+        .text-cyan { color: var(--cyan); }
+
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .kpi-grid, .top-grid, .leaders-grid {
+                grid-template-columns: 1fr;
+            }
+            .data-table { font-size: 0.7rem;
+                          padding-bottom: 20px; }
+            .data-table th, .data-table td { padding: 0.4rem 0.2rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Система авторизации -->
+    <div id="authOverlay" class="auth-overlay">
+        <div class="auth-modal">
+            <h1 class="auth-title">🔐 Доступ к дашборду</h1>
+            <p style="text-align: center; color: var(--text-gray); margin-bottom: 2rem;">
+                Введите пароль филиала или мастер-пароль
+            </p>
+            
+            <div class="password-input">
+                <input type="password" id="passwordInput" placeholder="Введите пароль..." autocomplete="off">
+            </div>
+            
+            <button class="auth-btn" id="loginBtn">Войти в систему</button>
+            
+            <div id="authError" class="auth-error">
+                ❌ Неверный пароль. Попробуйте снова.
+            </div>
+            
+            <div class="auth-hint">
+                <strong>Тестовые пароли:</strong><br>
+                • Мастер-пароль (директор): <code>MASTER_KEY</code><br>
+                • Филиал БД1: <code>BD1_PASS</code><br>
+                • Филиал БД3: <code>BD3_PASS</code><br>
+                • Филиал БД4: <code>BD4_PASS</code>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной интерфейс дашборда (скрыт до авторизации) -->
+    <div id="dashboard" class="hidden">
+        <header>
+            <div class="header-content">
+                <div>
+                    <div class="header-title">Панель управления</div>
+                    <div class="header-subtitle">{period}</div>
+                </div>
+                <div class="branch-selector">
+                    <button class="branch-btn" data-branch="bd1">БД1</button>
+                    <button class="branch-btn" data-branch="bd3">БД3</button>
+                    <button class="branch-btn active" data-branch="bd4">БД4</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="container">
+            <!-- KPI Cards - ЧАСЫ -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon">🏢</div>
+                    <div class="kpi-text">
+                        <div class="kpi-label">Отделы / Сотрудники</div>
+                        <div class="kpi-value" id="kpi-depts-emps">0 / 0</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">⏱️</div>
+                    <div class="kpi-text">
+                        <div class="kpi-label">Нормы: Магазин / Офис</div>
+                        <div class="kpi-value" id="kpi-norms">0 / 0</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">📅</div>
+                    <div class="kpi-text">
+                        <div class="kpi-label">Отп. / Вых. / Бол. / Невых.</div>
+                        <div class="kpi-value" id="kpi-absences">0 / 0 / 0 / 0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Table -->
+            <div class="section">
+                <h2 class="section-title">Сводная таблица сотрудников</h2>
+                <div class="glass-card">
+                    <div class="table-controls">
+                        <div class="control-group">
+                            <label class="control-label">Отдел</label>
+                            <select id="dept-filter">
+                                <option value="">Все отделы</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label class="control-label">Поиск по ФИО</label>
+                            <input type="text" id="name-search" placeholder="Введите имя...">
+                        </div>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <div style="max-height: 500px; overflow-y: auto; margin-top: 10px;">
+                            <table class="data-table" id="main-table">
+                                <thead>
+                                    <tr>
+                                        <th>ФИО</th>
+                                        <th class="col-dept">Отдел</th>
+                                        <th class="col-vacation">Отп.</th>
+                                        <th class="col-weekend">Вых.</th>
+                                        <th class="col-sick">Бол.</th>
+                                        <th>Часов</th>
+                                        <th>Доля</th>
+                                        <th class="col-premium">Долевая. прем.</th>
+                                        <th class="col-category">Обычн.</th>
+                                        <th class="col-category">Бон.</th>
+                                        <th class="col-category">Нелик.</th>
+                                        <th class="col-premium">Премия опт</th>
+                                        <th>Схема</th>
+                                        <th>Гарантии</th>
+                                        <th>Разница</th>
+                                        <th>ИТОГО</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-body">
+                                    <!-- Данные загружаются через JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вторая таблица: Статистика по типам продаж и категориям товаров -->
+            <div class="section">
+                <h2 class="section-title">Статистика по типам продаж и категориям товаров</h2>
+                <div class="glass-card">
+                    <div class="table-controls">
+                        <div class="control-group">
+                            <label class="control-label">Отдел</label>
+                            <select id="dept-filter-stats">
+                                <option value="">Все отделы</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label class="control-label">Поиск по ФИО</label>
+                            <input type="text" id="name-search-stats" placeholder="Введите имя...">
+                        </div>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <div style="max-height: 500px; overflow-y: auto; margin-top: 10px;">
+                            <table class="data-table" id="stats-table">
+                                <thead>
+                                    <tr>
+                                        <th>ФИО</th>
+                                        <th>Отдел</th>
+                                        <th>Доля розн.</th>
+                                        <th>Кол. розн.</th>
+                                        <th>Доля опт</th>
+                                        <th>Кол. опт</th>
+                                        <th>Доля проч.</th>
+                                        <th>Кол. проч.</th>
+                                        <th class="separator"></th>
+                                        <th>Доля обычн.</th>
+                                        <th>Кол. обычн.</th>
+                                        <th>Доля бонус.</th>
+                                        <th>Кол. бонус.</th>
+                                        <th>Доля нелик.</th>
+                                        <th>Кол. нелик.</th>
+                                        <th>Доля прод.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stats-body">
+                                    <!-- Данные загружаются через JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top 5 -->
+            <div class="section">
+                <h2 class="section-title">Топ-5 продавцов</h2>
+                <div class="top-grid" id="top5-grid"></div>
+            </div>
+
+            <!-- Anti Top 5 -->
+            <div class="section">
+                <h2 class="section-title">Анти-топ-5</h2>
+                <div class="top-grid" id="antitop5-grid"></div>
+            </div>
+
+            <!-- Leaders by Category -->
+            <div class="section">
+                <h2 class="section-title">Лидеры по категориям</h2>
+                <div class="leaders-grid">
+                    <div class="leader-block">
+                        <h3>🎁 По бонусным товарам</h3>
+                        <div id="leaders-bonus"></div>
+                    </div>
+                    <div class="leader-block">
+                        <h3>📦 По неликвидным</h3>
+                        <div id="leaders-nonliquid"></div>
+                    </div>
+                    <div class="leader-block">
+                        <h3>🛍️ По розничным</h3>
+                        <div id="leaders-retail"></div>
+                    </div>
+                    <div class="leader-block">
+                        <h3>🏭 По оптовым</h3>
+                        <div id="leaders-wholesale"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Problem Areas -->
+            <div class="section">
+                <h2 class="section-title">Проблемные места</h2>
+                <div class="problems-grid">
+                    <div class="problem-block">
+                        <h3>⚠️ Низкая эффективность</h3>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ФИО</th>
+                                    <th>Отдел</th>
+                                    <th>Часы</th>
+                                    <th>Выручка</th>
+                                    <th>Выр/час</th>
+                                </tr>
+                            </thead>
+                            <tbody id="problem-efficiency"></tbody>
+                        </table>
+                    </div>
+                    <div class="problem-block">
+                        <h3>💰 Доплата до минималки</h3>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ФИО</th>
+                                    <th>Отдел</th>
+                                    <th>ИТОГО</th>
+                                    <th>Доплата</th>
+                                </tr>
+                            </thead>
+                            <tbody id="problem-minimum"></tbody>
+                        </table>
+                    </div>
+                    <div class="problem-block">
+                        <h3>📅 Много пропусков</h3>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ФИО</th>
+                                    <th>Отдел</th>
+                                    <th>Отпуск</th>
+                                    <th>Вых.</th>
+                                    <th>Бол.</th>
+                                    <th>Всего</th>
+                                </tr>
+                            </thead>
+                            <tbody id="problem-absences"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Department Stats -->
+            <div class="section">
+                <h2 class="section-title">Статистика по отделам</h2>
+                <div class="glass-card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Отдел</th>
+                                <th>Сотр.</th>
+                                <th>Ср. ЗП</th>
+                                <th>Часов</th>
+                                <th>Норма</th>
+                                <th>Вых.</th>
+                                <th>Отп.</th>
+                                <th>Бол.</th>
+                                <th>Невых.</th>
+                                <th>% отработанных часов</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dept-stats"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Диаграммы -->
+            <div class="section">
+                <h2 class="section-title">Диаграммы</h2>
+                
+                <div class="glass-card">
+                    <div class="chart-container">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div class="chart-title" style="margin-bottom: 0;">Соотношение типов продаж по отделам</div>
+                            <div id="legend-salesTypes" style="display: flex; gap: 20px;"></div>
+                        </div>
+                        <canvas id="salesTypesChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-card" style="margin-top: 1.5rem;">
+                    <div class="chart-container">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div class="chart-title" style="margin-bottom: 0;">Соотношение категорий товаров по отделам</div>
+                            <div id="legend-productCategories" style="display: flex; gap: 20px;"></div>
+                        </div>
+                        <canvas id="productCategoriesChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-card" style="margin-top: 1.5rem;">
+                    <div class="chart-container" style="margin-bottom: 30px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div class="chart-title" style="margin-bottom: 0;">Соотношение заказных и ассортиментных товаров по отделам</div>
+                            <div id="legend-customVsAssortment" style="display: flex; gap: 20px;"></div>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <button onclick="changeZakazChartType('items')" class="chart-type-btn active">Количество (ед.)</button>
+                            <button onclick="changeZakazChartType('revenue')" class="chart-type-btn">Выручка</button>
+                            <button onclick="changeZakazChartType('profit')" class="chart-type-btn">Прибыль</button>
+                        </div>
+                        <canvas id="customVsAssortmentChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Заказные и ассортиментные товары -->
+                <div class="section" style="margin-top: 2rem;">
+                    <h2 class="section-title">Заказные и ассортиментные товары</h2>
+                    <div class="glass-card">
+                        <div class="table-controls">
+                            <div class="control-group">
+                                <label class="control-label">Отдел</label>
+                                <select id="dept-filter-zakaz">
+                                    <option value="">Все отделы</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label class="control-label">Поиск по ФИО</label>
+                                <input type="text" id="name-search-zakaz" placeholder="Введите имя...">
+                            </div>
+                        </div>
+                        <div style="overflow-x: auto; padding-bottom: 10px;">
+                            <div style="max-height: 500px; overflow-y: auto; margin-top: 10px;">
+                                <table class="data-table" id="zakaz-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="min-width: 120px;">ФИО</th>
+                                            <th style="min-width: 90px;">Отдел</th>
+                                            <th class="zakaz-group" style="min-width: 60px;">Продажи заказ</th>
+                                            <th class="zakaz-group" style="min-width: 60px;">Прибыль заказ</th>
+                                            <th class="zakaz-group" style="min-width: 60px;">Кол-во заказ</th>
+                                            <th class="assortment-group" style="min-width: 60px;">Продажи ассорт</th>
+                                            <th class="assortment-group" style="min-width: 60px;">Прибыль ассорт</th>
+                                            <th class="assortment-group" style="min-width: 60px;">Кол-во ассорт</th>
+                                            <th style="min-width: 350px;">% заказ/ассорт</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="zakaz-body">
+                                        <!-- Данные загружаются через JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Данные и пароли - будут подставлены Python
+        const allData = {data_json};
+        const passwords = {passwords_json};
+        const reportPeriod = "{period}";
+        
+        let currentBranch = 'bd4';
+        let currentData = [];
+        let currentAccess = null;
+
+        // Регистрируем плагин для отображения значений на графиках
+        Chart.register(ChartDataLabels);
+
+        // Система авторизации
+        function checkPassword() {
+            const password = document.getElementById('passwordInput').value.trim();
+            const errorElement = document.getElementById('authError');
+            
+            if (password === passwords.ALL) {
+                currentAccess = 'ALL';
+                showDashboard();
+                return;
+            }
+            
+            if (password === passwords.bd1) {
+                currentAccess = 'bd1';
+                currentBranch = 'bd1';
+                showDashboard();
+                return;
+            }
+            if (password === passwords.bd3) {
+                currentAccess = 'bd3';
+                currentBranch = 'bd3';
+                showDashboard();
+                return;
+            }
+            if (password === passwords.bd4) {
+                currentAccess = 'bd4';
+                currentBranch = 'bd4';
+                showDashboard();
+                return;
+            }
+            
+            errorElement.style.display = 'block';
+            document.getElementById('passwordInput').value = '';
+            document.getElementById('passwordInput').focus();
+        }
+
+        function showDashboard() {
+            document.getElementById('authOverlay').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            
+            // Если мастер-пароль, показываем все филиалы
+            if (currentAccess === 'ALL') {
+                // Объединяем данные всех филиалов
+                currentData = [];
+                for (const branch in allData) {
+                    currentData = currentData.concat(allData[branch]);
+                }
+                // Активируем все кнопки филиалов
+                document.querySelectorAll('.branch-btn').forEach(btn => {
+                    btn.classList.add('active');
+                });
+            } else {
+                // Показываем только выбранный филиал
+                currentData = allData[currentAccess] || [];
+                // Деактивируем все кнопки, затем активируем только текущую
+                document.querySelectorAll('.branch-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector('.branch-btn[data-branch="' + currentAccess + '"]').classList.add('active');
+                // Скрываем кнопки других филиалов
+                document.querySelectorAll('.branch-btn').forEach(btn => {
+                    if (btn.dataset.branch !== currentAccess) {
+                        btn.style.display = 'none';
+                    }
+                });
+            }
+            
+            // Загружаем данные
+            loadBranch(currentBranch);
+        }
+
+        function renderTable(filterDept = '', searchName = '') {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+            
+            let filtered = currentData.filter(emp => {
+                const deptMatch = !filterDept || emp.dept === filterDept;
+                const nameMatch = !searchName || emp.fio.toLowerCase().includes(searchName.toLowerCase());
+                return deptMatch && nameMatch;
+            });
+
+            filtered.forEach(emp => {
+                const row = document.createElement('tr');
+                const isUnderworked = emp.worked < emp.norm * 0.9;
+                if (isUnderworked) row.classList.add('warning');
+                
+                const vacation = emp.vacation ? emp.vacation : '-';
+                const weekend = emp.weekend ? emp.weekend : '-';
+                const sick = emp.sick ? emp.sick : '-';
+                const premOptTotal = emp.premWholesale + emp.premOther;
+
+                row.innerHTML = `
+                    <td>${emp.fio}</td>
+                    <td class="col-dept">${emp.dept}</td>
+                    <td class="col-vacation">${vacation}</td>
+                    <td class="col-weekend">${weekend}</td>
+                    <td class="col-sick">${sick}</td>
+                    <td class="${isUnderworked ? 'text-red' : ''}">${emp.worked.toFixed(1).replace('.', ',')}</td>
+                    <td>${emp.rating.toFixed(2).replace('.', ',')} %</td>
+                    <td class="prem-retail col-premium">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.dol_prem || 0))}</td>
+                    <td class="prem-retail col-category">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.regular || 0))}</td>
+                    <td class="prem-retail col-category">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.bonus || 0))}</td>
+                    <td class="prem-retail col-category">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.nonliquid || 0))}</td>
+                    <td class="prem-opt col-premium">${new Intl.NumberFormat('ru-RU').format(Math.round(premOptTotal || 0))}</td>
+                    <td>${new Intl.NumberFormat('ru-RU').format(Math.round(emp.scheme || 0))}</td>
+                    <td>${new Intl.NumberFormat('ru-RU').format(Math.round(emp.guarantee || 0))}</td>
+                    <td class="${emp.diff < 0 ? 'text-red' : 'text-green'}">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.diff || 0))}</td>
+                    <td><div class="total-column">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.total || 0))}</div></td>
+                `;
+                
+                // Двойной клик для выделения строки
+                row.addEventListener('dblclick', function() {
+                    document.querySelectorAll('#table-body tr').forEach(r => {
+                        r.classList.remove('selected', 'faded');
+                    });
+                    
+                    this.classList.add('selected');
+                    
+                    document.querySelectorAll('#table-body tr').forEach(r => {
+                        if (r !== this) {
+                            r.classList.add('faded');
+                        }
+                    });
+                });
+
+                // Клик снимает выделение
+                row.addEventListener('click', function() {
+                    this.classList.remove('selected');
+                    document.querySelectorAll('#table-body tr').forEach(r => {
+                        r.classList.remove('faded');
+                    });
+                });
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderStatsTable(filterDept = '', searchName = '') {
+            const tbody = document.getElementById('stats-body');
+            tbody.innerHTML = '';
+            
+            let filtered = currentData.filter(emp => {
+                const deptMatch = !filterDept || emp.dept === filterDept;
+                const nameMatch = !searchName || emp.fio.toLowerCase().includes(searchName.toLowerCase());
+                return deptMatch && nameMatch;
+            });
+
+            filtered.forEach((emp, index) => {
+                const row = document.createElement('tr');
+                
+                // Рассчитываем доли
+                const totalRetail = emp.dol_prem || 0;
+                const totalWholesale = emp.premWholesale || 0;
+                const totalOther = emp.premOther || 0;
+                const totalAll = totalRetail + totalWholesale + totalOther;
+                
+                const pctRetail = totalAll > 0 ? (totalRetail / totalAll) * 100 : 0;
+                const pctWholesale = totalAll > 0 ? (totalWholesale / totalAll) * 100 : 0;
+                const pctOther = totalAll > 0 ? (totalOther / totalAll) * 100 : 0;
+                
+                const totalInRetail = emp.dol_prem || 1;
+                const pctRegular = totalInRetail > 0 ? (emp.regular / totalInRetail) * 100 : 0;
+                const pctBonus = totalInRetail > 0 ? (emp.bonus / totalInRetail) * 100 : 0;
+                const pctNonliquid = totalInRetail > 0 ? (emp.nonliquid / totalInRetail) * 100 : 0;
+                
+                row.innerHTML = `
+                    <td>${emp.fio}</td>
+                    <td>${emp.dept}</td>
+                    <td class="pair-group-1">${parseFloat(pctRetail).toFixed(1).replace('.', ',')} %</td>
+                    <td class="pair-group-1">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.розница_общая_колво || 0))}</td>
+                    <td class="pair-group-2">${parseFloat(pctWholesale).toFixed(1).replace('.', ',')} %</td>
+                    <td class="pair-group-2">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.опт_колво || 0))}</td>
+                    <td class="pair-group-3">${parseFloat(pctOther).toFixed(1).replace('.', ',')} %</td>
+                    <td class="pair-group-3">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.прочая_колво || 0))}</td>
+                    <td class="separator"></td>
+                    <td class="pair-group-4">${parseFloat(pctRegular).toFixed(1).replace('.', ',')} %</td>
+                    <td class="pair-group-4">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.обычные_колво || 0))}</td>
+                    <td class="pair-group-5">${parseFloat(pctBonus).toFixed(1).replace('.', ',')} %</td>
+                    <td class="pair-group-5">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.розница_бонус_колво || 0))}</td>
+                    <td class="pair-group-6">${parseFloat(pctNonliquid).toFixed(1).replace('.', ',')} %</td>
+                    <td class="pair-group-6">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.розница_неликвид_колво || 0))}</td>
+                    <td>${emp.rating.toFixed(2).replace('.', ',')} %</td>
+                `;
+                
+                row.addEventListener('dblclick', function() {
+                    document.querySelectorAll('#stats-body tr').forEach(r => {
+                        r.classList.remove('selected', 'faded');
+                    });
+                    
+                    this.classList.add('selected');
+                    
+                    document.querySelectorAll('#stats-body tr').forEach(r => {
+                        if (r !== this) {
+                            r.classList.add('faded');
+                        }
+                    });
+                });
+
+                row.addEventListener('click', function() {
+                    this.classList.remove('selected');
+                    document.querySelectorAll('#stats-body tr').forEach(r => {
+                        r.classList.remove('faded');
+                    });
+                });
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderZakazTable(filterDept = '', searchName = '') {
+            const tbody = document.getElementById('zakaz-body');
+            tbody.innerHTML = '';
+            
+            let filtered = currentData.filter(emp => {
+                const deptMatch = !filterDept || emp.dept === filterDept;
+                const nameMatch = !searchName || emp.fio.toLowerCase().includes(searchName.toLowerCase());
+                return deptMatch && nameMatch;
+            });
+
+            filtered.forEach(emp => {
+                const row = document.createElement('tr');
+                
+                const заказные_продажи = emp.заказные_продажи || 0;
+                const заказные_прибыль = emp.заказные_прибыль || 0;
+                const заказные_колво = emp.заказные_колво || 0;
+                const незаказные_продажи = emp.незаказные_продажи || 0;
+                const незаказные_прибыль = emp.незаказные_прибыль || 0;
+                const незаказные_колво = emp.незаказные_колво || 0;
+                
+                const totalSales = заказные_продажи + незаказные_продажи;
+                const процент_заказных = totalSales > 0 ? Math.round((заказные_продажи / totalSales) * 100) : 0;
+                
+                row.innerHTML = `
+                    <td style="min-width: 120px;">${emp.fio}</td>
+                    <td style="min-width: 80px;">${emp.dept}</td>
+                    <td class="zakaz-group" style="min-width: 60px;">${new Intl.NumberFormat('ru-RU').format(Math.round(заказные_продажи))}</td>
+                    <td class="zakaz-group" style="min-width: 60px;">${new Intl.NumberFormat('ru-RU').format(Math.round(заказные_прибыль))}</td>
+                    <td class="zakaz-group" style="min-width: 60px;">${new Intl.NumberFormat('ru-RU').format(Math.round(заказные_колво))}</td>
+                    <td class="assortment-group" style="min-width: 60px;">${new Intl.NumberFormat('ru-RU').format(Math.round(незаказные_продажи))}</td>
+                    <td class="assortment-group" style="min-width: 60px;">${new Intl.NumberFormat('ru-RU').format(Math.round(незаказные_прибыль))}</td>
+                    <td class="assortment-group" style="min-width: 60px;">${new Intl.NumberFormat('ru-RU').format(Math.round(незаказные_колво))}</td>
+                    <td style="min-width: 350px;">
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <div class="progress-bar" style="flex: 1; min-width: 340px;">
+                                <div class="progress-fill" style="width: ${процент_заказных}%; background: linear-gradient(90deg, rgba(236, 72, 153, 0.7), rgba(168, 85, 247, 0.7));"></div>
+                            </div>
+                            <span>${процент_заказных}%</span>
+                        </div>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderCharts() {
+            const deptData = {};
+            
+            currentData.forEach(emp => {
+                if (!deptData[emp.dept]) {
+                    deptData[emp.dept] = {
+                        retail: 0,
+                        wholesale: 0,
+                        other: 0,
+                        regular: 0,
+                        bonus: 0,
+                        nonliquid: 0,
+                        ordered: 0,
+                        unordered: 0
+                    };
+                }
+                
+                deptData[emp.dept].retail += emp.dol_prem || 0;
+                deptData[emp.dept].wholesale += emp.premWholesale || 0;
+                deptData[emp.dept].other += emp.premOther || 0;
+                deptData[emp.dept].regular += emp.regular || 0;
+                deptData[emp.dept].bonus += emp.bonus || 0;
+                deptData[emp.dept].nonliquid += emp.nonliquid || 0;
+                deptData[emp.dept].ordered += emp.заказные_прибыль || 0;
+                deptData[emp.dept].unordered += emp.незаказные_прибыль || 0;
+            });
+            
+            const departments = Object.keys(deptData);
+            
+            // === 1. ТИПЫ ПРОДАЖ (% от общей суммы по отделу) ===
+            const retailPct = departments.map(dept => {
+                const total = deptData[dept].retail + deptData[dept].wholesale + deptData[dept].other;
+                return total > 0 ? (deptData[dept].retail / total) * 100 : 0;
+            });
+            
+            const wholesalePct = departments.map(dept => {
+                const total = deptData[dept].retail + deptData[dept].wholesale + deptData[dept].other;
+                return total > 0 ? (deptData[dept].wholesale / total) * 100 : 0;
+            });
+            
+            const otherPct = departments.map(dept => {
+                const total = deptData[dept].retail + deptData[dept].wholesale + deptData[dept].other;
+                return total > 0 ? (deptData[dept].other / total) * 100 : 0;
+            });
+            
+            // === 2. КАТЕГОРИИ ТОВАРОВ (% от суммы розничных чеков) ===
+            const regularPct = departments.map(dept => {
+                const total = deptData[dept].regular + deptData[dept].bonus + deptData[dept].nonliquid;
+                return total > 0 ? (deptData[dept].regular / total) * 100 : 0;
+            });
+            
+            const bonusPct = departments.map(dept => {
+                const total = deptData[dept].regular + deptData[dept].bonus + deptData[dept].nonliquid;
+                return total > 0 ? (deptData[dept].bonus / total) * 100 : 0;
+            });
+            
+            const nonliquidPct = departments.map(dept => {
+                const total = deptData[dept].regular + deptData[dept].bonus + deptData[dept].nonliquid;
+                return total > 0 ? (deptData[dept].nonliquid / total) * 100 : 0;
+            });
+            
+            // === 3. ЗАКАЗНЫЕ/АССОРТИМЕНТНЫЕ (% от суммы прибыли) ===
+            const orderedPct = departments.map(dept => {
+                const total = deptData[dept].ordered + deptData[dept].unordered;
+                return total > 0 ? (deptData[dept].ordered / total) * 100 : 0;
+            });
+            
+            const unorderedPct = departments.map(dept => {
+                const total = deptData[dept].ordered + deptData[dept].unordered;
+                return total > 0 ? (deptData[dept].unordered / total) * 100 : 0;
+            });
+            
+            // === ДИАГРАММА 1: Типы продаж ===
+            const salesTypesCtx = document.getElementById('salesTypesChart').getContext('2d');
+            
+            if (window.salesTypesChart && typeof window.salesTypesChart.destroy === 'function') {
+                window.salesTypesChart.destroy();
+            }
+            
+            window.salesTypesChart = new Chart(salesTypesCtx, {
+                type: 'bar',
+                data: {
+                    labels: departments,
+                    datasets: [
+                        {
+                            label: 'Розничные по чекам',
+                            data: retailPct,
+                            backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Оптовые',
+                            data: wholesalePct,
+                            backgroundColor: 'rgba(245, 158, 11, 0.7)',
+                            borderColor: 'rgba(245, 158, 11, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Розничные прочие',
+                            data: otherPct,
+                            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1200,
+                        easing: 'linear'
+                    },
+                    plugins: {
+                        legend: { 
+                            labels: { 
+                                color: 'white',
+                                font: { size: 14 }
+                            },
+                            position: 'top',
+                            align: 'center',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.raw;
+                                    const deptIndex = context.dataIndex;
+                                    const absValue = deptData[departments[deptIndex]].retail + 
+                                                   deptData[departments[deptIndex]].wholesale + 
+                                                   deptData[departments[deptIndex]].other;
+                                    return `${label}: ${value.toFixed(1)}% (${new Intl.NumberFormat('ru-RU').format(Math.round(absValue))} руб.)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            display: true,
+                            color: 'white',
+                            font: { size: 13, weight: 'normal' },
+                            formatter: function(value) {
+                                return value.toFixed(1).replace('.', ',') + ' %';
+                            },
+                            anchor: 'end',
+                            align: 'top',
+                            offset: 5  // ⬆️ ⬇️ УМЕНЬШЕНО (было 25)
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: 'white',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 110,
+                            ticks: {
+                                color: 'white',
+                                callback: function(value) {
+                                    return value > 100 ? '' : value + '%';
+                                }
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+
+            // После window.salesTypesChart = new Chart(...)
+            // HTML-легенда для первой диаграммы
+            const legendHtml1 = window.salesTypesChart.legend.legendItems.map((item, index) => 
+                `<span id="legend-item-sales-${index}" data-index="${index}" style="display: inline-flex; align-items: center; gap: 5px; margin-right: 15px; cursor: pointer; opacity: 1; text-decoration: none;">
+                    <span style="display: inline-block; width: 12px; height: 12px; background-color: ${item.fillStyle};"></span>
+                    ${item.text}
+                </span>`
+            ).join('');
+
+            document.getElementById('legend-salesTypes').innerHTML = legendHtml1;
+
+            // Обработчик клика
+            for (let i = 0; i < window.salesTypesChart.legend.legendItems.length; i++) {
+                document.getElementById(`legend-item-sales-${i}`).addEventListener('click', function() {
+                    const meta = window.salesTypesChart.getDatasetMeta(i);
+                    meta.hidden = !meta.hidden;
+                    
+                    if (meta.hidden) {
+                        this.style.opacity = '0.5';
+                        this.style.textDecoration = 'line-through';
+                    } else {
+                        this.style.opacity = '1';
+                        this.style.textDecoration = 'none';
+                    }
+                    
+                    window.salesTypesChart.update();
+                });
+            }
+
+            // Скрыть встроенную легенду
+            window.salesTypesChart.options.plugins.legend.display = false;
+            window.salesTypesChart.update();
+            
+            // === ДИАГРАММА 2: Категории товаров ===
+            const productCategoriesCtx = document.getElementById('productCategoriesChart').getContext('2d');
+            
+            if (window.productCategoriesChart && typeof window.productCategoriesChart.destroy === 'function') {
+                window.productCategoriesChart.destroy();
+            }
+            
+            window.productCategoriesChart = new Chart(productCategoriesCtx, {
+                type: 'bar',
+                data: {
+                    labels: departments,
+                    datasets: [
+                        {
+                            label: 'Обычные товары',
+                            data: regularPct,
+                            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Бонусные товары',
+                            data: bonusPct,
+                            backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Неликвидные товары',
+                            data: nonliquidPct,
+                            backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                            borderColor: 'rgba(239, 68, 68, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1200,
+                        easing: 'easeInOutCubic'
+                    },
+                    plugins: {
+                        legend: { 
+                            labels: { 
+                                color: 'white',
+                                font: { size: 14 }
+                            },
+                            position: 'top',
+                            align: 'center',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.raw;
+                                    const deptIndex = context.dataIndex;
+                                    const absValue = deptData[departments[deptIndex]].regular + 
+                                                   deptData[departments[deptIndex]].bonus + 
+                                                   deptData[departments[deptIndex]].nonliquid;
+                                    return `${label}: ${value.toFixed(1)}% (${new Intl.NumberFormat('ru-RU').format(Math.round(absValue))} руб.)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            display: true,
+                            color: 'white',
+                            font: { size: 13, weight: 'normal' },
+                            formatter: function(value) {
+                                return value.toFixed(1).replace('.', ',') + ' %';
+                            },
+                            anchor: 'end',
+                            align: 'top',
+                            offset: 5  // ⬆️ Уменьшено (было 25)
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: 'white',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 110,
+                            ticks: {
+                                color: 'white',
+                                callback: function(value) {
+                                    return value > 100 ? '' : value + '%';
+                                }
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+
+            // После window.productTypesChart = new Chart(...)
+            // HTML-легенда для второй диаграммы
+            const legendHtml2 = window.productCategoriesChart.legend.legendItems.map((item, index) => 
+                `<span id="legend-item-product-${index}" data-index="${index}" style="display: inline-flex; align-items: center; gap: 5px; margin-right: 15px; cursor: pointer; opacity: 1; text-decoration: none;">
+                    <span style="display: inline-block; width: 12px; height: 12px; background-color: ${item.fillStyle};"></span>
+                    ${item.text}
+                </span>`
+            ).join('');
+
+            document.getElementById('legend-productCategories').innerHTML = legendHtml2;
+
+            // Обработчик клика
+            for (let i = 0; i < window.productCategoriesChart.legend.legendItems.length; i++) {
+                document.getElementById(`legend-item-product-${i}`).addEventListener('click', function() {
+                    const meta = window.productCategoriesChart.getDatasetMeta(i);
+                    meta.hidden = !meta.hidden;
+                    
+                    if (meta.hidden) {
+                        this.style.opacity = '0.5';
+                        this.style.textDecoration = 'line-through';
+                    } else {
+                        this.style.opacity = '1';
+                        this.style.textDecoration = 'none';
+                    }
+                    
+                    window.productCategoriesChart.update();
+                });
+            }
+
+            // Скрыть встроенную легенду
+            window.productCategoriesChart.options.plugins.legend.display = false;
+            window.productCategoriesChart.update();
+            
+            // === ДИАГРАММА 3: Заказные vs Ассортиментные (остается без изменений) ===
+            const zakazCtx = document.getElementById('customVsAssortmentChart').getContext('2d');
+            
+            if (window.customVsAssortmentChart && typeof window.customVsAssortmentChart.destroy === 'function') {
+                window.customVsAssortmentChart.destroy();
+            }
+            
+            window.customVsAssortmentChart = new Chart(zakazCtx, {
+                type: 'bar',
+                data: {
+                    labels: departments,
+                    datasets: [
+                        {
+                            label: 'Заказные товары',
+                            data: orderedPct,
+                            backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                            borderColor: 'rgba(236, 72, 153, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Ассортиментные товары',
+                            data: unorderedPct,
+                            backgroundColor: 'rgba(168, 85, 247, 0.7)',
+                            borderColor: 'rgba(168, 85, 247, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1200,
+                        easing: 'easeOutBounce'
+                    },
+                    plugins: {
+                        legend: { 
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.raw;
+                                    const deptIndex = context.dataIndex;
+                                    const absValue = deptData[departments[deptIndex]].ordered + 
+                                                   deptData[departments[deptIndex]].unordered;
+                                    return `${label}: ${value.toFixed(1)}% (${new Intl.NumberFormat('ru-RU').format(Math.round(absValue))} руб.)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            display: true,
+                            color: 'white',
+                            font: { size: 13, weight: 'normal' },
+                            formatter: function(value) {
+                                return value.toFixed(1).replace('.', ',') + ' %';
+                            },
+                            anchor: 'end',
+                            align: 'top',
+                            offset: 3
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: 'white',
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 110,
+                            ticks: {
+                                color: 'white',
+                                callback: function(value) {
+                                    return value > 100 ? '' : value + '%';
+                                }
+                            },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    },
+                    onClick: function(e) {
+                        const activeElements = this.getElementsAtEvent(e);
+                        if (activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const meta0 = this.getDatasetMeta(0);
+                            const meta1 = this.getDatasetMeta(1);
+                            
+                            meta0.data[index].hidden = !meta0.data[index].hidden;
+                            meta1.data[index].hidden = !meta1.data[index].hidden;
+                            this.update();
+                        }
+                    }
+                }
+            });
+            // HTML-легенда для третьей диаграммы
+            const legendHtml3 = window.customVsAssortmentChart.legend.legendItems.map((item, index) => 
+                `<span id="legend-item-custom-${index}" data-index="${index}" style="display: inline-flex; align-items: center; gap: 5px; margin-right: 15px; cursor: pointer; opacity: 1; text-decoration: none;">
+                    <span style="display: inline-block; width: 12px; height: 12px; background-color: ${item.fillStyle};"></span>
+                    ${item.text}
+                </span>`
+            ).join('');
+
+            document.getElementById('legend-customVsAssortment').innerHTML = legendHtml3;
+
+            // Обработчик клика
+            for (let i = 0; i < window.customVsAssortmentChart.legend.legendItems.length; i++) {
+                document.getElementById(`legend-item-custom-${i}`).addEventListener('click', function() {
+                    const meta = window.customVsAssortmentChart.getDatasetMeta(i);
+                    meta.hidden = !meta.hidden;
+                    
+                    if (meta.hidden) {
+                        this.style.opacity = '0.5';
+                        this.style.textDecoration = 'line-through';
+                    } else {
+                        this.style.opacity = '1';
+                        this.style.textDecoration = 'none';
+                    }
+                    
+                    window.customVsAssortmentChart.update();
+                });
+            }
+
+            // Скрыть встроенную легенду
+            window.customVsAssortmentChart.options.plugins.legend.display = false;
+            window.customVsAssortmentChart.update();
+        }
+
+        function changeZakazChartType(type) {
+            // Убираем активный класс у всех кнопок
+            document.querySelectorAll('.chart-type-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            // Добавляем активный класс нажатой кнопке
+            event.target.classList.add('active');
+            
+            // Перерисовываем график с новым типом данных
+            // renderZakazChart(type);
+        }
+
+        function renderZakazChart(dataType = 'items') {
+            const ctx = document.getElementById('customVsAssortmentChart').getContext('2d');
+            const departments = [...new Set(currentData.map(emp => emp.dept))];
+            
+            const orderedData = departments.map(dept => {
+                let total = 0;
+                currentData.forEach(emp => {
+                    if (emp.dept === dept) {
+                        if (dataType === 'items') total += (emp.заказные_колво || 0);
+                        if (dataType === 'revenue') total += (emp.заказные_продажи || 0);
+                        if (dataType === 'profit') total += (emp.заказные_прибыль || 0);
+                    }
+                });
+                return total;
+            });
+            
+            const unorderedData = departments.map(dept => {
+                let total = 0;
+                currentData.forEach(emp => {
+                    if (emp.dept === dept) {
+                        if (dataType === 'items') total += (emp.незаказные_колво || 0);
+                        if (dataType === 'revenue') total += (emp.незаказные_продажи || 0);
+                        if (dataType === 'profit') total += (emp.незаказные_прибыль || 0);
+                    }
+                });
+                return total;
+            });
+
+            // Уничтожаем старый график, если существует
+            if (window.customVsAssortmentChart && typeof window.customVsAssortmentChart.destroy === 'function') {
+                window.customVsAssortmentChart.destroy();
+            }
+
+            window.customVsAssortmentChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: departments,
+                    datasets: [
+                        {
+                            label: 'Заказные товары',
+                            data: orderedData,
+                            backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                            borderColor: 'rgba(236, 72, 153, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Ассортиментные товары',
+                            data: unorderedData,
+                            backgroundColor: 'rgba(168, 85, 247, 0.7)',
+                            borderColor: 'rgba(168, 85, 247, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            labels: { color: 'white' } 
+                        },
+                        datalabels: {
+                            display: true,
+                            color: 'white',
+                            font: { size: 16, weight: 'bold' },
+                            formatter: function(value, context) {
+                                const deptIndex = context.dataIndex;
+                                const total = orderedData[deptIndex] + unorderedData[deptIndex];
+                                return total > 0 ? Math.round((value / total) * 100) + ' %' : '0 %';
+                            },
+                            anchor: 'end',
+                            align: 'top',
+                            offset: 5
+                        }
+                    },
+                    scales: {
+                        x: { 
+                            ticks: { 
+                                color: 'white',
+                                callback: function(val, index) {
+                                    const label = this.getLabelForValue(val);
+                                    return label;
+                                }
+                            }, 
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' } 
+                        },
+                        y: { 
+                            beginAtZero: true, 
+                            ticks: { color: 'white' }, 
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' } 
+                        }
+                    },
+                    onClick: function(e) {
+                        const activeElements = Chart.helpers.getElementsAtEvent(this, e);
+                        if (activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const meta0 = this.getDatasetMeta(0);
+                            const meta1 = this.getDatasetMeta(1);
+                            
+                            meta0.data[index].hidden = !meta0.data[index].hidden;
+                            meta1.data[index].hidden = !meta1.data[index].hidden;
+                            this.update();
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderTop5() {
+            const sorted = [...currentData].sort((a, b) => b.total - a.total).slice(0, 5);
+            const grid = document.getElementById('top5-grid');
+            grid.innerHTML = sorted.map((emp, i) => {
+                const totalRevenue = emp.dol_prem + emp.premWholesale + emp.premOther;
+                const pctRetail = totalRevenue > 0 ? (emp.dol_prem / totalRevenue * 100).toFixed(0) : 0;
+                const pctWholesale = totalRevenue > 0 ? (emp.premWholesale / totalRevenue * 100).toFixed(0) : 0;
+                const pctOther = totalRevenue > 0 ? (emp.premOther / totalRevenue * 100).toFixed(0) : 0;
+                const pctRegular = emp.dol_prem > 0 ? (emp.regular / emp.dol_prem * 100).toFixed(0) : 0;
+                const pctBonus = emp.dol_prem > 0 ? (emp.bonus / emp.dol_prem * 100).toFixed(0) : 0;
+                const pctNonliquid = emp.dol_prem > 0 ? (emp.nonliquid / emp.dol_prem * 100).toFixed(0) : 0;
+
+                return `
+                    <div class="rank-card">
+                        <div>
+                            <span class="rank-number">${i+1}</span>
+                            <span class="rank-name">${emp.fio}</span>
+                        </div>
+                        <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-gray);">${emp.dept}</div>
+                        <div style="margin-top: 0.8rem; font-size: 1.3rem; font-weight: 600;">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.total))}</div>
+                        <div class="rank-details" style="margin-top: 0.8rem;">
+                            <div>Розн.чеки: <span class="text-cyan">${pctRetail} %</span></div>
+                            <div>Опт: <span class="text-cyan">${pctWholesale} %</span></div>
+                            <div>Прочая: <span class="text-cyan">${pctOther} %</span></div>
+                            <div>%обычн: <span class="text-green">${pctRegular} %</span></div>
+                            <div>%бонус: <span class="text-yellow">${pctBonus} %</span></div>
+                            <div>%нелик: <span class="text-red">${pctNonliquid} %</span></div>
+                            <div>Часы: ${emp.worked.toFixed(1)}/${emp.norm.toFixed(1)}</div>
+                            <div>Потеря: <span class="${emp.diff < 0 ? 'text-red' : 'text-green'}">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.diff))}</span></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAntiTop5() {
+            const sorted = [...currentData].sort((a, b) => a.total - b.total).slice(0, 5);
+            const grid = document.getElementById('antitop5-grid');
+            grid.innerHTML = sorted.map((emp, i) => {
+                const totalRevenue = emp.dol_prem + emp.premWholesale + emp.premOther;
+                const pctRetail = totalRevenue > 0 ? (emp.dol_prem / totalRevenue * 100).toFixed(0) : 0;
+                const pctWholesale = totalRevenue > 0 ? (emp.premWholesale / totalRevenue * 100).toFixed(0) : 0;
+                const pctOther = totalRevenue > 0 ? (emp.premOther / totalRevenue * 100).toFixed(0) : 0;
+
+                return `
+                    <div class="rank-card anti">
+                        <div>
+                            <span class="rank-number">${i+1}</span>
+                            <span class="rank-name">${emp.fio}</span>
+                        </div>
+                        <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-gray);">${emp.dept}</div>
+                        <div style="margin-top: 0.8rem; font-size: 1.3rem; font-weight: 600;">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.total))}</div>
+                        <div class="rank-details" style="margin-top: 0.8rem;">
+                            <div>Розн.чеки: ${pctRetail} %</div>
+                            <div>Опт: ${pctWholesale} %</div>
+                            <div>Прочая: ${pctOther} %</div>
+                            <div>Часы: ${emp.worked.toFixed(1)}/${emp.norm.toFixed(1)}</div>
+                            <div>Потеря: <span class="text-red">${new Intl.NumberFormat('ru-RU').format(Math.round(emp.diff))}</span></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderLeaders() {
+            const byBonus = [...currentData].sort((a, b) => b.bonus - a.bonus).slice(0, 5);
+            const byNonliquid = [...currentData].sort((a, b) => b.nonliquid - a.nonliquid).slice(0, 5);
+            const byRetail = [...currentData].sort((a, b) => b.dol_prem - a.dol_prem).slice(0, 5);
+            const byWholesale = [...currentData].sort((a, b) => b.premWholesale - a.premWholesale).slice(0, 5);
+
+            document.getElementById('leaders-bonus').innerHTML = byBonus.map((e, i) => 
+                `<div class="leader-item"><span>${i+1}. ${e.fio}</span><span>${new Intl.NumberFormat('ru-RU').format(Math.round(e.bonus))}</span></div>`
+            ).join('');
+
+            document.getElementById('leaders-nonliquid').innerHTML = byNonliquid.map((e, i) => 
+                `<div class="leader-item"><span>${i+1}. ${e.fio}</span><span>${new Intl.NumberFormat('ru-RU').format(Math.round(e.nonliquid))}</span></div>`
+            ).join('');
+
+            document.getElementById('leaders-retail').innerHTML = byRetail.map((e, i) => 
+                `<div class="leader-item"><span>${i+1}. ${e.fio}</span><span>${new Intl.NumberFormat('ru-RU').format(Math.round(e.dol_prem))}</span></div>`
+            ).join('');
+
+            document.getElementById('leaders-wholesale').innerHTML = byWholesale.map((e, i) => 
+                `<div class="leader-item"><span>${i+1}. ${e.fio}</span><span>${new Intl.NumberFormat('ru-RU').format(Math.round(e.premWholesale))}</span></div>`
+            ).join('');
+        }
+
+        function renderProblems() {
+            const lowEfficiency = currentData.filter(e => e.worked > 100 && (e.dol_prem / e.worked) < 500).slice(0, 5);
+            document.getElementById('problem-efficiency').innerHTML = lowEfficiency.map(e => 
+                `<tr>
+                    <td>${e.fio}</td>
+                    <td>${e.dept}</td>
+                    <td>${e.worked.toFixed(1)}</td>
+                    <td>${new Intl.NumberFormat('ru-RU').format(Math.round(e.dol_prem))}</td>
+                    <td class="text-red">${new Intl.NumberFormat('ru-RU').format(Math.round(e.dol_prem / e.worked))}/час</td>
+                </tr>`
+            ).join('');
+
+            const withMinimum = currentData.filter(e => 
+                e.scheme === e.minimum  // или проверка, что итоговая равна минималке
+            ).slice(0, 5);
+            document.getElementById('problem-minimum').innerHTML = withMinimum.map(e => 
+                `<tr>
+                    <td>${e.fio}</td>
+                    <td>${e.dept}</td>
+                    <td>${new Intl.NumberFormat('ru-RU').format(Math.round(e.total))}</td>
+                    <td class="text-red">+${new Intl.NumberFormat('ru-RU').format(Math.round(e.guarantee))}</td>
+                </tr>`
+            ).join('');
+
+            const withAbsences = currentData.filter(e => (e.vacation + e.weekend + e.sick) > 5).slice(0, 5);
+            document.getElementById('problem-absences').innerHTML = withAbsences.map(e => {
+                const total = e.vacation + e.weekend + e.sick;
+                return `<tr>
+                    <td>${e.fio}</td>
+                    <td>${e.dept}</td>
+                    <td>${e.vacation}</td>
+                    <td>${e.weekend}</td>
+                    <td>${e.sick}</td>
+                    <td class="text-red">${total} дней</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderDeptStats() {
+            const deptStats = {};
+            currentData.forEach(emp => {
+                const dept = emp.dept;
+                if (!deptStats[dept]) {
+                    deptStats[dept] = {
+                        count: 0,
+                        totalSalary: 0,
+                        totalHours: 0,
+                        totalNorm: 0,
+                        totalVacation: 0,
+                        totalWeekend: 0,
+                        totalSick: 0,
+                        totalNoShow: 0
+                    };
+                }
+                deptStats[dept].count++;
+                deptStats[dept].totalSalary += emp.total;
+                deptStats[dept].totalHours += emp.worked;
+                deptStats[dept].totalNorm += emp.norm;
+                deptStats[dept].totalVacation += emp.vacation || 0;
+                deptStats[dept].totalWeekend += emp.weekend || 0;
+                deptStats[dept].totalSick += emp.sick || 0;
+            });
+
+            // Преобразуем в массив для сортировки
+            let deptArray = Object.entries(deptStats).map(([dept, stats]) => {
+                const avgSalary = stats.count > 0 ? stats.totalSalary / stats.count : 0;
+                const completion = stats.totalNorm > 0 ? (stats.totalHours / stats.totalNorm * 100).toFixed(1) : 0;
+                return {
+                    dept,
+                    count: stats.count,
+                    avgSalary,
+                    totalHours: stats.totalHours,
+                    totalNorm: stats.totalNorm,
+                    totalWeekend: stats.totalWeekend,
+                    totalVacation: stats.totalVacation,
+                    totalSick: stats.totalSick,
+                    totalNoShow: stats.totalNoShow,
+                    completion: parseFloat(completion)
+                };
+            });
+
+            // Состояние сортировки
+            let sortColumn = 'dept';
+            let sortAsc = true;
+
+            // Функция сортировки
+            function sortDeptStats(column) {
+                if (sortColumn === column) {
+                    sortAsc = !sortAsc;
+                } else {
+                    sortColumn = column;
+                    sortAsc = true;
+                }
+
+                deptArray.sort((a, b) => {
+                    let aVal = a[column];
+                    let bVal = b[column];
+                    
+                    // Для строк
+                    if (typeof aVal === 'string') {
+                        aVal = aVal.toLowerCase();
+                        bVal = bVal.toLowerCase();
+                    }
+                    
+                    if (sortAsc) {
+                        return aVal > bVal ? 1 : -1;
+                    } else {
+                        return aVal < bVal ? 1 : -1;
+                    }
+                });
+
+                renderTable();
+            }
+
+            // Функция отрисовки таблицы
+            function renderTable() {
+                const tbody = document.getElementById('dept-stats');
+                tbody.innerHTML = deptArray.map(item => `
+                    <tr>
+                        <td style="min-width: 80px;">${item.dept}</td>
+                        <td>${item.count}</td>
+                        <td>${new Intl.NumberFormat('ru-RU').format(Math.round(item.avgSalary || 0))}</td>
+                        <td>${new Intl.NumberFormat('ru-RU').format(Math.round(item.totalHours || 0))}</td>
+                        <td>${new Intl.NumberFormat('ru-RU').format(Math.round(item.totalNorm || 0))}</td>
+                        <td>${item.totalWeekend}</td>
+                        <td>${item.totalVacation}</td>
+                        <td>${item.totalSick}</td>
+                        <td>${item.totalNoShow}</td>
+                        <td style="min-width: 220px;">
+                            <div>${item.completion.toFixed(1)} %</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill ${item.completion < 90 ? 'low' : ''}" style="width: ${Math.min(item.completion, 100)}%"></div>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            // Добавляем обработчики на заголовки
+            const headers = document.querySelector('#dept-stats').closest('table').querySelectorAll('th');
+            const columns = ['dept', 'count', 'avgSalary', 'totalHours', 'totalNorm', 'totalWeekend', 'totalVacation', 'totalSick', 'totalNoShow', 'completion'];
+            
+            headers.forEach((th, index) => {
+                th.style.cursor = 'pointer';
+                th.title = 'Нажмите для сортировки';
+                th.addEventListener('click', () => {
+                    sortDeptStats(columns[index]);
+                });
+            });
+
+            // Первоначальная отрисовка
+            renderTable();
+        }
+
+        function updateDeptFilter() {
+            if (!currentData || currentData.length === 0) return;
+    
+            const depts = [...new Set(currentData.map(e => e.dept))].sort();
+            const select = document.getElementById('dept-filter');
+            const selectStats = document.getElementById('dept-filter-stats');
+            const selectZakaz = document.getElementById('dept-filter-zakaz');
+            
+            const options = '<option value="">Все отделы</option>' + 
+                depts.map(d => `<option value="${d}">${d}</option>`).join('');
+            
+            if (select) select.innerHTML = options;
+            if (selectStats) selectStats.innerHTML = options;
+            if (selectZakaz) selectZakaz.innerHTML = options;
+        }
+
+        function updateKPI() {
+            // 1. Отделы / Сотрудники
+            const uniqueDepts = new Set(currentData.map(e => e.dept)).size;
+            const totalEmployees = currentData.length;
+            document.getElementById('kpi-depts-emps').textContent = 
+                `${uniqueDepts} / ${totalEmployees}`;
+            
+            // 2. Нормы часов (магазин и офис)
+            const shopNorms = currentData.filter(e => e.norm !== 168).map(e => e.norm);
+            const officeNorms = currentData.filter(e => e.norm === 168).map(e => e.norm);
+            
+            let shopNorm = shopNorms.length > 0 ? shopNorms[0].toFixed(1).replace('.', ',') : '0';
+            let officeNorm = officeNorms.length > 0 ? officeNorms[0].toFixed(0) : '168';
+            
+            document.getElementById('kpi-norms').textContent = 
+                `${shopNorm} / ${officeNorm}`;
+            
+            // 3. Отсутствия (суммы)
+            const totalVacation = currentData.reduce((sum, e) => sum + (e.vacation || 0), 0);
+            const totalWeekend = currentData.reduce((sum, e) => sum + (e.weekend || 0), 0);
+            const totalSick = currentData.reduce((sum, e) => sum + (e.sick || 0), 0);
+            const totalNoShow = currentData.reduce((sum, e) => sum + (e.no_show || 0), 0);
+            
+            document.getElementById('kpi-absences').textContent = 
+                `${totalVacation} / ${totalWeekend} / ${totalSick} / ${totalNoShow}`;
+        }
+
+        function loadBranch(branch) {
+            // Если ввели пароль филиала - показываем только этот филиал
+            if (currentAccess !== 'ALL' && currentAccess !== branch) {
+                // Не даем переключаться на другие филиала
+                alert('Доступ только к филиалу ' + currentAccess.toUpperCase());
+                return;
+            }
+            
+            currentData = allData[branch] || [];
+            currentBranch = branch;
+            console.log('currentData length:', currentData.length);
+            console.log('Sample data:', currentData[0]);
+            
+            // Обновляем активную кнопку
+            document.querySelectorAll('.branch-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.branch === branch);
+            });
+
+            updateKPI();
+            updateDeptFilter();
+            renderTable();
+            // Делаем колонку ИТОГО кнопкой для суммы
+            const totalHeader = document.querySelector('#main-table th:last-child');
+            if (totalHeader) {
+                totalHeader.style.cursor = 'pointer';
+                totalHeader.title = 'Нажмите, чтобы показать сумму';
+                totalHeader.onclick = calculateTotal;
+            }
+            setupSorting();
+            renderStatsTable();
+            renderZakazTable();
+            renderTop5();
+            renderAntiTop5();
+            renderLeaders();
+            renderProblems();
+            renderDeptStats();
+            renderCharts();
+        }
+
+        // Инициализация
+        // 1. Кнопка "ИТОГО"
+        
+
+        function calculateTotal() {
+            const currentDept = document.getElementById('dept-filter').value;
+            const currentSearch = document.getElementById('name-search').value;
+            
+            let filtered = currentData.filter(emp => {
+                const deptMatch = !currentDept || emp.dept === currentDept;
+                const nameMatch = !currentSearch || emp.fio.toLowerCase().includes(currentSearch.toLowerCase());
+                return deptMatch && nameMatch;
+            });
+            
+            const totalSum = filtered.reduce((sum, emp) => sum + (emp.total || 0), 0);
+            
+            // Создаем свое окно
+            const modal = document.createElement('div');
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.backgroundColor = 'rgba(0,0,0,0.9)';
+            modal.style.display = 'flex';
+            modal.style.justifyContent = 'center';
+            modal.style.alignItems = 'center';
+            modal.style.zIndex = '10000';
+            
+            modal.innerHTML = `
+                <div style="background: var(--bg-card); padding: 2rem; border-radius: 12px; max-width: 500px; text-align: center; font-size: 18px;">
+                    <h3 style="margin-bottom: 1rem; color: var(--blue-light); font-size: 22px;">💰 Сумма итоговых зарплат</h3>
+                    <div style="font-size: 24px; font-weight: bold; margin: 1rem 0; color: var(--text-white);">
+                        ${new Intl.NumberFormat('ru-RU').format(Math.round(totalSum))} руб.
+                    </div>
+                    <div style="color: var(--text-gray); font-size: 16px; margin: 0.5rem 0;">
+                        👥 Сотрудников: ${filtered.length}
+                    </div>
+                    ${currentDept ? `<div style="color: var(--cyan); font-size: 16px;">🏢 Отдел: ${currentDept}</div>` : ''}
+                    <button onclick="this.parentElement.parentElement.remove()" 
+                            style="margin-top: 1.5rem; padding: 0.8rem 2rem; background: var(--blue-light); color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;">
+                        Закрыть
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        // 2. Сортировка таблицы
+        let currentSortColumn = null;
+        let sortAscending = true;
+
+        function sortTable(columnIndex) {
+            const tbody = document.getElementById('table-body');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            rows.sort((a, b) => {
+                let aVal = a.cells[columnIndex].textContent;
+                let bVal = b.cells[columnIndex].textContent;
+                
+                // Для числовых колонок
+                if (columnIndex === 5 || columnIndex === 6 || columnIndex === 11 || columnIndex === 12) { // Часы, Доля, Премия опт, Схема
+                    aVal = parseFloat(aVal.replace(/[^\d,.-]/g, '').replace(',', '.'));
+                    bVal = parseFloat(bVal.replace(/[^\d,.-]/g, '').replace(',', '.'));
+                }
+                
+                if (sortAscending) {
+                    return aVal > bVal ? 1 : -1;
+                } else {
+                    return aVal < bVal ? 1 : -1;
+                }
+            });
+            
+            // Очищаем и добавляем отсортированные строки
+            tbody.innerHTML = '';
+            rows.forEach(row => tbody.appendChild(row));
+            
+            // Меняем направление сортировки для следующего клика
+            sortAscending = !sortAscending;
+            currentSortColumn = columnIndex;
+        }
+
+        function setupSorting() {
+            const headers = document.querySelectorAll('#main-table th');
+            const sortableColumns = {
+                0: 'ФИО',   // Индекс 0
+                1: 'Отдел',
+                5: 'Часы',  // Индекс 5
+                6: 'Доля',  // Индекс 6
+                11: 'Премия опт', // Индекс 11
+                12: 'Схема', // Индекс 12
+                15: 'ИТОГО' // Последняя колонка
+            };
+            
+            headers.forEach((th, index) => {
+                if (sortableColumns[index]) {
+                    th.style.cursor = 'pointer';
+                    th.title = 'Нажмите для сортировки';
+                    th.addEventListener('click', () => sortTable(index));
+                }
+            });
+        }
+
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Обработчики авторизации
+            document.getElementById('loginBtn').addEventListener('click', checkPassword);
+            document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') checkPassword();
+            });
+            
+            document.getElementById('dept-filter-zakaz').addEventListener('change', (e) => {
+                renderZakazTable(e.target.value, document.getElementById('name-search-zakaz').value);
+            });
+
+            document.getElementById('name-search-zakaz').addEventListener('input', (e) => {
+                renderZakazTable(document.getElementById('dept-filter-zakaz').value, e.target.value);
+            });
+            
+            // Фокус на поле ввода пароля
+            document.getElementById('passwordInput').focus();
+            
+            // Обработчики для дашборда
+            document.querySelectorAll('.branch-btn').forEach(btn => {
+                btn.addEventListener('click', () => loadBranch(btn.dataset.branch));
+            });
+
+            document.getElementById('dept-filter').addEventListener('change', (e) => {
+                renderTable(e.target.value, document.getElementById('name-search').value);
+            });
+
+            document.getElementById('name-search').addEventListener('input', (e) => {
+                renderTable(document.getElementById('dept-filter').value, e.target.value);
+            });
+
+            document.getElementById('dept-filter-stats').addEventListener('change', (e) => {
+                renderStatsTable(e.target.value, document.getElementById('name-search-stats').value);
+            });
+
+            document.getElementById('name-search-stats').addEventListener('input', (e) => {
+                renderStatsTable(document.getElementById('dept-filter-stats').value, e.target.value);
+            });
+            
+            document.getElementById('dept-filter-zakaz').addEventListener('change', (e) => {
+                renderZakazTable(e.target.value, document.getElementById('name-search-zakaz').value);
+            });
+
+            document.getElementById('name-search-zakaz').addEventListener('input', (e) => {
+                renderZakazTable(document.getElementById('dept-filter-zakaz').value, e.target.value);
+            });
+        });
+    </script>
+</body>
+</html>
